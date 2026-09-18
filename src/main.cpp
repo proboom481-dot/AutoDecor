@@ -35,29 +35,68 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             return;
         }
 
-        int created = 0;
+        auto objects = editor->getAllObjects();
 
-        // Тест: создаём 12 обычных блоков
-        for (int i = 0; i < 12; i++) {
-            float x = 200.f + i * 60.f;
-            float y = 120.f + (i % 3) * 30.f;
+        if (!objects) {
+            log::error("Auto Decor: object list not found!");
+            return;
+        }
 
-            auto object = editor->createObject(
+        // Запоминаем количество ДО создания новых объектов.
+        // Иначе мы начнём обрабатывать собственный декор повторно.
+        unsigned int originalCount = objects->count();
+
+        int decorated = 0;
+
+        for (unsigned int i = 0; i < originalCount; i++) {
+            auto object = static_cast<GameObject*>(
+                objects->objectAtIndex(i)
+            );
+
+            if (!object)
+                continue;
+
+            // Пока декорируем только обычный блок ID 1.
+            if (object->m_objectID != 1)
+                continue;
+
+            auto pos = object->getPosition();
+
+            // Маленький декоративный блок сверху справа.
+            auto decor = editor->createObject(
                 1,
-                {x, y},
+                {
+                    pos.x + 14.f,
+                    pos.y + 14.f
+                },
                 false
             );
 
-            if (object) {
-                created++;
-            }
+            if (!decor)
+                continue;
+
+            decor->setScale(0.35f);
+            decor->setRotation(45.f);
+
+            // Голубоватый декоративный цвет.
+            decor->setObjectColor(
+                {80, 180, 255}
+            );
+
+            decorated++;
         }
 
-        log::info("Auto Decor: created {} objects", created);
+        log::info(
+            "Auto Decor: decorated {} blocks!",
+            decorated
+        );
 
         FLAlertLayer::create(
-            "Auto Decor",
-            fmt::format("Created {} objects!", created).c_str(),
+            "AUTO DECOR",
+            fmt::format(
+                "Decorated {} blocks!",
+                decorated
+            ).c_str(),
             "OK"
         )->show();
     }
