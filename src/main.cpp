@@ -1,282 +1,823 @@
+
 #include <Geode/Geode.hpp>
-#include <Geode/modify/EditorUI.hpp>
+#include <Geode/modify/PauseLayer.hpp>
 
 using namespace geode::prelude;
 
-static bool g_autoDecorDone = false;
 
-class $modify(AutoDecorEditorUI, EditorUI) {
+// ============================================================
+// ExternalHack
+// ============================================================
 
-    bool init(LevelEditorLayer* editorLayer) {
-        if (!EditorUI::init(editorLayer))
+class ExternalHackMenu : public FLAlertLayer {
+protected:
+
+    CCMenu* m_categories = nullptr;
+    CCMenu* m_features = nullptr;
+
+    // Состояния функций
+    bool m_noclip = false;
+    bool m_hitboxes = false;
+    bool m_hitboxTrail = false;
+    bool m_trajectory = false;
+    bool m_startpos = false;
+    bool m_autoPractice = false;
+    bool m_autoclicker = false;
+
+
+    bool init() {
+
+        if (!FLAlertLayer::init(
+            nullptr,
+            "",
+            "",
+            "",
+            nullptr,
+            540.f,
+            false,
+            360.f,
+            0.75f
+        )) {
             return false;
+        }
 
-        // Каждый новый редактор позволяет запустить декорирование заново
-        g_autoDecorDone = false;
 
-        auto menu = CCMenu::create();
-        menu->setPosition(0, 0);
+        // ====================================================
+        // TITLE
+        // ====================================================
 
-        auto buttonSprite = ButtonSprite::create("AUTO DECOR");
-
-        auto button = CCMenuItemSpriteExtra::create(
-            buttonSprite,
-            this,
-            menu_selector(AutoDecorEditorUI::onAutoDecor)
+        auto title = CCLabelBMFont::create(
+            "EXTERNALHACK",
+            "goldFont.fnt"
         );
 
-        button->setPosition(100, 100);
+        title->setPosition(
+            270.f,
+            325.f
+        );
 
-        menu->addChild(button);
-        this->addChild(menu);
+        title->setScale(0.55f);
+
+        m_mainLayer->addChild(
+            title,
+            20
+        );
+
+
+        // ====================================================
+        // TOP ARROW
+        // ====================================================
+
+        auto topMenu = CCMenu::create();
+        topMenu->setPosition(0, 0);
+
+        m_mainLayer->addChild(
+            topMenu,
+            100
+        );
+
+        auto arrowSprite =
+            CCSprite::createWithSpriteFrameName(
+                "GJ_arrow01_001.png"
+            );
+
+        auto arrow = CCMenuItemSpriteExtra::create(
+            arrowSprite,
+            this,
+            menu_selector(
+                ExternalHackMenu::onBack
+            )
+        );
+
+        arrow->setScale(0.48f);
+
+        arrow->setPosition(
+            270.f,
+            344.f
+        );
+
+        topMenu->addChild(arrow);
+
+
+        // ====================================================
+        // EXIT BUTTON
+        // ====================================================
+
+        auto exitSprite = ButtonSprite::create(
+            "EXIT",
+            55,
+            true,
+            "bigFont.fnt",
+            "GJ_button_06.png",
+            18.f,
+            0.45f
+        );
+
+        auto exit = CCMenuItemSpriteExtra::create(
+            exitSprite,
+            this,
+            menu_selector(
+                ExternalHackMenu::onExit
+            )
+        );
+
+        exit->setPosition(
+            485.f,
+            25.f
+        );
+
+        topMenu->addChild(exit);
+
+
+        // ====================================================
+        // CATEGORY PANEL
+        // ====================================================
+
+        m_categories = CCMenu::create();
+        m_categories->setPosition(0, 0);
+
+        m_mainLayer->addChild(
+            m_categories,
+            10
+        );
+
+
+        createCategory(
+            "LEVEL",
+            0,
+            78.f,
+            292.f
+        );
+
+        createCategory(
+            "UNIVERSAL",
+            1,
+            78.f,
+            264.f
+        );
+
+        createCategory(
+            "CREATOR",
+            2,
+            78.f,
+            236.f
+        );
+
+        createCategory(
+            "COSMETIC",
+            3,
+            78.f,
+            208.f
+        );
+
+        createCategory(
+            "SPEEDHACK",
+            4,
+            78.f,
+            180.f
+        );
+
+        createCategory(
+            "ICON EFFECTS",
+            5,
+            78.f,
+            152.f
+        );
+
+        createCategory(
+            "LABELS",
+            6,
+            78.f,
+            124.f
+        );
+
+        createCategory(
+            "SHORTCUTS",
+            7,
+            78.f,
+            96.f
+        );
+
+        createCategory(
+            "CONFIG",
+            8,
+            78.f,
+            68.f
+        );
+
+        createCategory(
+            "SEARCH",
+            9,
+            78.f,
+            40.f
+        );
+
+
+        // ====================================================
+        // FEATURES
+        // ====================================================
+
+        m_features = CCMenu::create();
+        m_features->setPosition(0, 0);
+
+        m_mainLayer->addChild(
+            m_features,
+            10
+        );
+
+        showLevel();
 
         return true;
     }
 
-    void onAutoDecor(CCObject* sender) {
 
-        if (g_autoDecorDone) {
-            FLAlertLayer::create(
-                "AUTO DECOR",
-                "Decoration has already been added!",
-                "OK"
-            )->show();
+    // ========================================================
+    // CATEGORY
+    // ========================================================
 
-            return;
-        }
+    void createCategory(
+        const char* name,
+        int id,
+        float x,
+        float y
+    ) {
 
-        auto editor = LevelEditorLayer::get();
-
-        if (!editor) {
-            log::error("Auto Decor: editor not found!");
-
-            FLAlertLayer::create(
-                "AUTO DECOR",
-                "Editor not found!",
-                "OK"
-            )->show();
-
-            return;
-        }
-
-        auto objects = editor->getAllObjects();
-
-        if (!objects || objects->count() == 0) {
-            FLAlertLayer::create(
-                "AUTO DECOR",
-                "No objects found in this layout.",
-                "OK"
-            )->show();
-
-            return;
-        }
-
-        unsigned int originalCount = objects->count();
-
-        float minX = 999999.f;
-        float maxX = -999999.f;
-        float minY = 999999.f;
-        float maxY = -999999.f;
-
-        int blockCount = 0;
-
-        // Ищем границы существующего layout
-        for (unsigned int i = 0; i < originalCount; i++) {
-
-            auto object = static_cast<GameObject*>(
-                objects->objectAtIndex(i)
-            );
-
-            if (!object)
-                continue;
-
-            auto pos = object->getPosition();
-
-            if (pos.x < minX)
-                minX = pos.x;
-
-            if (pos.x > maxX)
-                maxX = pos.x;
-
-            if (pos.y < minY)
-                minY = pos.y;
-
-            if (pos.y > maxY)
-                maxY = pos.y;
-
-            if (object->m_objectID == 1)
-                blockCount++;
-        }
-
-        if (blockCount == 0) {
-            FLAlertLayer::create(
-                "AUTO DECOR",
-                "No normal blocks found.",
-                "OK"
-            )->show();
-
-            return;
-        }
-
-        int decorated = 0;
-        int flowers = 0;
-        int clouds = 0;
-
-        // ------------------------------------------------
-        // ТРАВА + ЦВЕТЫ
-        // ------------------------------------------------
-
-        int blockIndex = 0;
-
-        for (unsigned int i = 0; i < originalCount; i++) {
-
-            auto block = static_cast<GameObject*>(
-                objects->objectAtIndex(i)
-            );
-
-            if (!block)
-                continue;
-
-            if (block->m_objectID != 1)
-                continue;
-
-            auto pos = block->getPosition();
-
-            // Декорируем только нижнюю часть
-            if (pos.y > minY + 110.f)
-                continue;
-
-            // Трава
-            if (blockIndex % 2 == 0) {
-
-                auto grassLeft = editor->createObject(
-                    907,
-                    {pos.x - 17.f, pos.y + 17.f},
-                    false
-                );
-
-                if (grassLeft) {
-                    grassLeft->setScale(
-                        blockIndex % 4 == 0 ? 0.55f : 0.70f
-                    );
-
-                    grassLeft->setRotation(
-                        blockIndex % 4 == 0 ? -8.f : 0.f
-                    );
-
-                    decorated++;
-                }
-
-                auto grassRight = editor->createObject(
-                    907,
-                    {pos.x + 17.f, pos.y + 17.f},
-                    false
-                );
-
-                if (grassRight) {
-                    grassRight->setScale(
-                        blockIndex % 4 == 0 ? 0.60f : 0.72f
-                    );
-
-                    grassRight->setRotation(
-                        blockIndex % 3 == 0 ? 165.f : 180.f
-                    );
-
-                    decorated++;
-                }
-            }
-
-            // Цветы
-            if (blockIndex % 3 == 0) {
-
-                auto flower = editor->createObject(
-                    939,
-                    {pos.x, pos.y + 30.f},
-                    false
-                );
-
-                if (flower) {
-
-                    flower->setScale(
-                        blockIndex % 6 == 0
-                            ? 0.42f
-                            : 0.55f
-                    );
-
-                    flower->setRotation(
-                        blockIndex % 2 == 0
-                            ? -5.f
-                            : 5.f
-                    );
-
-                    flowers++;
-                    decorated++;
-                }
-            }
-
-            blockIndex++;
-        }
-
-        // ------------------------------------------------
-        // ОБЛАКА
-        // ------------------------------------------------
-
-        float cloudY = maxY + 100.f;
-        float cloudSpacing = 190.f;
-
-        int cloudIndex = 0;
-
-        for (
-            float x = minX - 150.f;
-            x <= maxX + 150.f;
-            x += cloudSpacing
-        ) {
-
-            auto cloud = editor->createObject(
-                936,
-                {x, cloudY},
-                false
-            );
-
-            if (!cloud)
-                continue;
-
-            if (cloudIndex % 4 == 0)
-                cloud->setScale(0.75f);
-            else if (cloudIndex % 3 == 0)
-                cloud->setScale(0.55f);
-            else
-                cloud->setScale(0.65f);
-
-            if (cloudIndex % 2 == 0)
-                cloud->setRotation(-3.f);
-            else
-                cloud->setRotation(3.f);
-
-            clouds++;
-            decorated++;
-            cloudIndex++;
-        }
-
-        // Запоминаем, что декор уже добавлен
-        g_autoDecorDone = true;
-
-        log::info(
-            "Auto Decor: {} decorations created!",
-            decorated
+        auto sprite = ButtonSprite::create(
+            name,
+            115,
+            true,
+            "bigFont.fnt",
+            "GJ_button_04.png",
+            20.f,
+            0.42f
         );
 
+        auto button = CCMenuItemSpriteExtra::create(
+            sprite,
+            this,
+            menu_selector(
+                ExternalHackMenu::onCategory
+            )
+        );
+
+        button->setTag(id);
+
+        button->setPosition(
+            x,
+            y
+        );
+
+        m_categories->addChild(button);
+    }
+
+
+    // ========================================================
+    // FEATURE
+    // ========================================================
+
+    void createFeature(
+        const char* name,
+        int id,
+        float x,
+        float y,
+        bool value = false
+    ) {
+
+        // Checkbox
+
+        auto off =
+            CCSprite::createWithSpriteFrameName(
+                "GJ_checkOff_001.png"
+            );
+
+        auto on =
+            CCSprite::createWithSpriteFrameName(
+                "GJ_checkOn_001.png"
+            );
+
+        auto toggle = CCMenuItemToggler::create(
+            off,
+            on,
+            this,
+            menu_selector(
+                ExternalHackMenu::onToggle
+            )
+        );
+
+        toggle->setTag(id);
+        toggle->setScale(0.42f);
+
+        toggle->toggle(value);
+
+        toggle->setPosition(
+            x,
+            y
+        );
+
+        m_features->addChild(toggle);
+
+
+        // Text
+
+        auto label = CCLabelBMFont::create(
+            name,
+            "bigFont.fnt"
+        );
+
+        label->setAnchorPoint(
+            {0.f, 0.5f}
+        );
+
+        label->setScale(0.30f);
+
+        label->setPosition(
+            x + 13.f,
+            y
+        );
+
+        m_features->addChild(label);
+
+
+        // Plus
+
+        auto plusSprite = ButtonSprite::create(
+            "+",
+            20,
+            true,
+            "bigFont.fnt",
+            "GJ_button_01.png",
+            15.f,
+            0.52f
+        );
+
+        auto plus = CCMenuItemSpriteExtra::create(
+            plusSprite,
+            this,
+            menu_selector(
+                ExternalHackMenu::onPlus
+            )
+        );
+
+        plus->setTag(id);
+
+        plus->setPosition(
+            x + 137.f,
+            y
+        );
+
+        m_features->addChild(plus);
+
+
+        // Info
+
+        auto infoSprite =
+            CCSprite::createWithSpriteFrameName(
+                "GJ_infoIcon_001.png"
+            );
+
+        auto info = CCMenuItemSpriteExtra::create(
+            infoSprite,
+            this,
+            menu_selector(
+                ExternalHackMenu::onInfo
+            )
+        );
+
+        info->setTag(id);
+        info->setScale(0.40f);
+
+        info->setPosition(
+            x + 159.f,
+            y
+        );
+
+        m_features->addChild(info);
+    }
+
+
+    // ========================================================
+    // LEVEL
+    // ========================================================
+
+    void showLevel() {
+
+        const float left = 205.f;
+        const float right = 365.f;
+
+        const float top = 285.f;
+        const float gap = 29.f;
+
+
+        createFeature(
+            "NOCLIP",
+            1,
+            left,
+            top,
+            m_noclip
+        );
+
+        createFeature(
+            "SHOW HITBOXES",
+            2,
+            left,
+            top - gap,
+            m_hitboxes
+        );
+
+        createFeature(
+            "HITBOX TRAIL",
+            3,
+            left,
+            top - gap * 2,
+            m_hitboxTrail
+        );
+
+        createFeature(
+            "SHOW TRAJECTORY",
+            4,
+            left,
+            top - gap * 3,
+            m_trajectory
+        );
+
+        createFeature(
+            "ACCURATE HITBOXES",
+            5,
+            left,
+            top - gap * 4
+        );
+
+        createFeature(
+            "AUTO COLLECT COINS",
+            6,
+            left,
+            top - gap * 5
+        );
+
+        createFeature(
+            "AUTOCLICKER",
+            7,
+            left,
+            top - gap * 6,
+            m_autoclicker
+        );
+
+        createFeature(
+            "CLASSIC PERCENTAGE",
+            8,
+            left,
+            top - gap * 7
+        );
+
+
+        createFeature(
+            "INSTANT COMPLETE",
+            10,
+            right,
+            top
+        );
+
+        createFeature(
+            "HITBOXES ON DEATH",
+            11,
+            right,
+            top - gap
+        );
+
+        createFeature(
+            "STARTPOS SWITCHER",
+            12,
+            right,
+            top - gap * 2,
+            m_startpos
+        );
+
+        createFeature(
+            "ACCURATE PERCENTAGE",
+            13,
+            right,
+            top - gap * 3
+        );
+
+        createFeature(
+            "PLATFORMER MODE",
+            14,
+            right,
+            top - gap * 4
+        );
+
+        createFeature(
+            "AUTO PRACTICE",
+            15,
+            right,
+            top - gap * 5,
+            m_autoPractice
+        );
+
+        createFeature(
+            "BEST PERCENTAGE",
+            16,
+            right,
+            top - gap * 6
+        );
+
+        createFeature(
+            "COIN TRACERS",
+            17,
+            right,
+            top - gap * 7
+        );
+    }
+
+
+    // ========================================================
+    // CATEGORY CLICK
+    // ========================================================
+
+    void onCategory(CCObject* sender) {
+
+        auto button =
+            static_cast<CCMenuItemSpriteExtra*>(
+                sender
+            );
+
+        int id = button->getTag();
+
+        m_features->removeAllChildren();
+
+
+        if (id == 0) {
+
+            showLevel();
+            return;
+        }
+
+
+        const char* title = "CATEGORY";
+
+        switch (id) {
+
+            case 1:
+                title = "UNIVERSAL";
+                break;
+
+            case 2:
+                title = "CREATOR";
+                break;
+
+            case 3:
+                title = "COSMETIC";
+                break;
+
+            case 4:
+                title = "SPEEDHACK";
+                break;
+
+            case 5:
+                title = "ICON EFFECTS";
+                break;
+
+            case 6:
+                title = "LABELS";
+                break;
+
+            case 7:
+                title = "SHORTCUTS";
+                break;
+
+            case 8:
+                title = "CONFIG";
+                break;
+
+            case 9:
+                title = "SEARCH";
+                break;
+        }
+
+
+        auto label = CCLabelBMFont::create(
+            title,
+            "bigFont.fnt"
+        );
+
+        label->setPosition(
+            365.f,
+            190.f
+        );
+
+        label->setScale(0.55f);
+
+        m_features->addChild(label);
+
+
+        auto coming = CCLabelBMFont::create(
+            "FEATURES WILL BE ADDED HERE",
+            "bigFont.fnt"
+        );
+
+        coming->setPosition(
+            365.f,
+            160.f
+        );
+
+        coming->setScale(0.30f);
+
+        m_features->addChild(coming);
+    }
+
+
+    // ========================================================
+    // TOGGLE
+    // ========================================================
+
+    void onToggle(CCObject* sender) {
+
+        auto toggle =
+            static_cast<CCMenuItemToggler*>(
+                sender
+            );
+
+        bool enabled = toggle->isToggled();
+
+        switch (toggle->getTag()) {
+
+            case 1:
+                m_noclip = enabled;
+                break;
+
+            case 2:
+                m_hitboxes = enabled;
+                break;
+
+            case 3:
+                m_hitboxTrail = enabled;
+                break;
+
+            case 4:
+                m_trajectory = enabled;
+                break;
+
+            case 12:
+                m_startpos = enabled;
+                break;
+
+            case 15:
+                m_autoPractice = enabled;
+                break;
+
+            case 7:
+                m_autoclicker = enabled;
+                break;
+        }
+
+
+        log::info(
+            "ExternalHack feature {} = {}",
+            toggle->getTag(),
+            enabled
+        );
+    }
+
+
+    // ========================================================
+    // PLUS
+    // ========================================================
+
+    void onPlus(CCObject* sender) {
+
+        auto button =
+            static_cast<CCMenuItemSpriteExtra*>(
+                sender
+            );
+
         FLAlertLayer::create(
-            "AUTO DECOR",
+            "ExternalHack",
             fmt::format(
-                "Created {} decorations!\n\n"
-                "Flowers: {}\n"
-                "Clouds: {}",
-                decorated,
-                flowers,
-                clouds
+                "Settings for feature {}",
+                button->getTag()
             ).c_str(),
             "OK"
         )->show();
+    }
+
+
+    // ========================================================
+    // INFO
+    // ========================================================
+
+    void onInfo(CCObject* sender) {
+
+        auto button =
+            static_cast<CCMenuItemSpriteExtra*>(
+                sender
+            );
+
+        FLAlertLayer::create(
+            "ExternalHack",
+            fmt::format(
+                "ExternalHack feature ID: {}",
+                button->getTag()
+            ).c_str(),
+            "OK"
+        )->show();
+    }
+
+
+    // ========================================================
+    // ARROW
+    // ========================================================
+
+    void onBack(CCObject*) {
+        this->keyBackClicked();
+    }
+
+
+    // ========================================================
+    // EXIT
+    // ========================================================
+
+    void onExit(CCObject*) {
+        this->keyBackClicked();
+    }
+
+
+public:
+
+    static ExternalHackMenu* create() {
+
+        auto ret = new ExternalHackMenu();
+
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+};
+
+
+// ============================================================
+// PAUSE LAYER
+// ============================================================
+
+class $modify(
+    ExternalHackPauseLayer,
+    PauseLayer
+) {
+
+    void customSetup() {
+
+        PauseLayer::customSetup();
+
+
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+
+        this->addChild(
+            menu,
+            100
+        );
+
+
+        auto button = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create(
+                "EXTERNAL",
+                80,
+                true,
+                "bigFont.fnt",
+                "GJ_button_01.png",
+                25.f,
+                0.55f
+            ),
+            this,
+            menu_selector(
+                ExternalHackPauseLayer::openExternalHack
+            )
+        );
+
+
+        auto size =
+            CCDirector::sharedDirector()->getWinSize();
+
+
+        button->setPosition(
+            size.width - 75.f,
+            45.f
+        );
+
+
+        menu->addChild(button);
+    }
+
+
+    void openExternalHack(CCObject*) {
+
+        auto menu =
+            ExternalHackMenu::create();
+
+        if (menu)
+            menu->show();
     }
 };
