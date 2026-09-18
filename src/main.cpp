@@ -11,7 +11,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
-        // Каждый новый редактор позволяет запустить декорирование заново
         g_autoDecorDone = false;
 
         auto menu = CCMenu::create();
@@ -48,8 +47,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
         auto editor = LevelEditorLayer::get();
 
         if (!editor) {
-            log::error("Auto Decor: editor not found!");
-
             FLAlertLayer::create(
                 "AUTO DECOR",
                 "Editor not found!",
@@ -64,7 +61,7 @@ class $modify(AutoDecorEditorUI, EditorUI) {
         if (!objects || objects->count() == 0) {
             FLAlertLayer::create(
                 "AUTO DECOR",
-                "No objects found in this layout.",
+                "No objects found.",
                 "OK"
             )->show();
 
@@ -80,7 +77,10 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
         int blockCount = 0;
 
-        // Ищем границы существующего layout
+        // ---------------------------------------------
+        // Ищем размеры существующего layout
+        // ---------------------------------------------
+
         for (unsigned int i = 0; i < originalCount; i++) {
 
             auto object = static_cast<GameObject*>(
@@ -92,17 +92,10 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
             auto pos = object->getPosition();
 
-            if (pos.x < minX)
-                minX = pos.x;
-
-            if (pos.x > maxX)
-                maxX = pos.x;
-
-            if (pos.y < minY)
-                minY = pos.y;
-
-            if (pos.y > maxY)
-                maxY = pos.y;
+            minX = std::min(minX, pos.x);
+            maxX = std::max(maxX, pos.x);
+            minY = std::min(minY, pos.y);
+            maxY = std::max(maxY, pos.y);
 
             if (object->m_objectID == 1)
                 blockCount++;
@@ -122,9 +115,9 @@ class $modify(AutoDecorEditorUI, EditorUI) {
         int flowers = 0;
         int clouds = 0;
 
-        // ------------------------------------------------
-        // ТРАВА + ЦВЕТЫ
-        // ------------------------------------------------
+        // ---------------------------------------------
+        // 🌿 НИЖНЯЯ РАСТИТЕЛЬНОСТЬ
+        // ---------------------------------------------
 
         int blockIndex = 0;
 
@@ -142,71 +135,90 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
             auto pos = block->getPosition();
 
-            // Декорируем только нижнюю часть
-            if (pos.y > minY + 110.f)
+            /*
+             * Только нижний слой.
+             * Верхние платформы не будут покрываться травой.
+             */
+            if (pos.y > minY + 120.f)
                 continue;
 
-            // Трава
+            // Каждая вторая подходящая поверхность
             if (blockIndex % 2 == 0) {
 
                 auto grassLeft = editor->createObject(
                     907,
-                    {pos.x - 17.f, pos.y + 17.f},
+                    {pos.x - 16.f, pos.y + 17.f},
                     false
                 );
 
                 if (grassLeft) {
-                    grassLeft->setScale(
-                        blockIndex % 4 == 0 ? 0.55f : 0.70f
-                    );
 
-                    grassLeft->setRotation(
-                        blockIndex % 4 == 0 ? -8.f : 0.f
-                    );
+                    float scale =
+                        (blockIndex % 4 == 0)
+                        ? 0.55f
+                        : 0.68f;
+
+                    grassLeft->setScale(scale);
+
+                    if (blockIndex % 5 == 0)
+                        grassLeft->setRotation(-10.f);
 
                     decorated++;
                 }
 
                 auto grassRight = editor->createObject(
                     907,
-                    {pos.x + 17.f, pos.y + 17.f},
+                    {pos.x + 16.f, pos.y + 17.f},
                     false
                 );
 
                 if (grassRight) {
-                    grassRight->setScale(
-                        blockIndex % 4 == 0 ? 0.60f : 0.72f
-                    );
 
-                    grassRight->setRotation(
-                        blockIndex % 3 == 0 ? 165.f : 180.f
-                    );
+                    float scale =
+                        (blockIndex % 6 == 0)
+                        ? 0.58f
+                        : 0.70f;
+
+                    grassRight->setScale(scale);
+
+                    if (blockIndex % 3 == 0)
+                        grassRight->setRotation(170.f);
+                    else
+                        grassRight->setRotation(180.f);
 
                     decorated++;
                 }
             }
 
-            // Цветы
-            if (blockIndex % 3 == 0) {
+            // -----------------------------------------
+            // 🌸 Цветы
+            // -----------------------------------------
+
+            /*
+             * Цветок не на каждом блоке.
+             * Это делает композицию менее шаблонной.
+             */
+            if (blockIndex % 4 == 0) {
 
                 auto flower = editor->createObject(
                     939,
-                    {pos.x, pos.y + 30.f},
+                    {pos.x, pos.y + 29.f},
                     false
                 );
 
                 if (flower) {
 
-                    flower->setScale(
-                        blockIndex % 6 == 0
-                            ? 0.42f
-                            : 0.55f
-                    );
+                    if (blockIndex % 8 == 0)
+                        flower->setScale(0.42f);
+                    else if (blockIndex % 6 == 0)
+                        flower->setScale(0.50f);
+                    else
+                        flower->setScale(0.57f);
 
                     flower->setRotation(
-                        blockIndex % 2 == 0
-                            ? -5.f
-                            : 5.f
+                        (blockIndex % 2 == 0)
+                        ? -6.f
+                        : 6.f
                     );
 
                     flowers++;
@@ -217,59 +229,107 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             blockIndex++;
         }
 
-        // ------------------------------------------------
-        // ОБЛАКА
-        // ------------------------------------------------
+        // ---------------------------------------------
+        // ☁️ ВЕРХНИЙ СЛОЙ ОБЛАКОВ
+        // ---------------------------------------------
 
-        float cloudY = maxY + 100.f;
-        float cloudSpacing = 190.f;
+        float cloudBaseY = maxY + 90.f;
+
+        /*
+         * Первый слой
+         */
+        float spacing1 = 220.f;
 
         int cloudIndex = 0;
 
         for (
-            float x = minX - 150.f;
-            x <= maxX + 150.f;
-            x += cloudSpacing
+            float x = minX - 220.f;
+            x <= maxX + 220.f;
+            x += spacing1
         ) {
 
             auto cloud = editor->createObject(
                 936,
-                {x, cloudY},
+                {x, cloudBaseY},
                 false
             );
 
             if (!cloud)
                 continue;
 
-            if (cloudIndex % 4 == 0)
-                cloud->setScale(0.75f);
-            else if (cloudIndex % 3 == 0)
-                cloud->setScale(0.55f);
+            if (cloudIndex % 3 == 0)
+                cloud->setScale(0.72f);
+            else if (cloudIndex % 2 == 0)
+                cloud->setScale(0.60f);
             else
-                cloud->setScale(0.65f);
+                cloud->setScale(0.50f);
 
-            if (cloudIndex % 2 == 0)
-                cloud->setRotation(-3.f);
-            else
-                cloud->setRotation(3.f);
+            cloud->setRotation(
+                (cloudIndex % 2 == 0)
+                ? -3.f
+                : 3.f
+            );
 
             clouds++;
             decorated++;
             cloudIndex++;
         }
 
-        // Запоминаем, что декор уже добавлен
+        // ---------------------------------------------
+        // ☁️ ВТОРОЙ, БОЛЕЕ ДАЛЬНИЙ СЛОЙ
+        // ---------------------------------------------
+
+        float spacing2 = 310.f;
+
+        int cloudIndex2 = 0;
+
+        for (
+            float x = minX - 100.f;
+            x <= maxX + 100.f;
+            x += spacing2
+        ) {
+
+            auto cloud = editor->createObject(
+                936,
+                {x, cloudBaseY + 75.f},
+                false
+            );
+
+            if (!cloud)
+                continue;
+
+            if (cloudIndex2 % 2 == 0)
+                cloud->setScale(0.42f);
+            else
+                cloud->setScale(0.50f);
+
+            cloud->setRotation(
+                (cloudIndex2 % 2 == 0)
+                ? 4.f
+                : -4.f
+            );
+
+            clouds++;
+            decorated++;
+            cloudIndex2++;
+        }
+
+        // ---------------------------------------------
+        // ГОТОВО
+        // ---------------------------------------------
+
         g_autoDecorDone = true;
 
         log::info(
-            "Auto Decor: {} decorations created!",
+            "Auto Decor v1.2: {} decorations created!",
             decorated
         );
 
         FLAlertLayer::create(
             "AUTO DECOR",
             fmt::format(
-                "Created {} decorations!\n\n"
+                "Decorated!\n\n"
+                "Total: {}\n"
                 "Flowers: {}\n"
                 "Clouds: {}",
                 decorated,
