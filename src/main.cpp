@@ -3,13 +3,16 @@
 
 using namespace geode::prelude;
 
-class $modify(AutoDecorEditorUI, EditorUI) {
+static bool g_autoDecorDone = false;
 
-    bool m_autoDecorDone = false;
+class $modify(AutoDecorEditorUI, EditorUI) {
 
     bool init(LevelEditorLayer* editorLayer) {
         if (!EditorUI::init(editorLayer))
             return false;
+
+        // Каждый новый редактор позволяет запустить декорирование заново
+        g_autoDecorDone = false;
 
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
@@ -32,10 +35,10 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
     void onAutoDecor(CCObject* sender) {
 
-        if (m_autoDecorDone) {
+        if (g_autoDecorDone) {
             FLAlertLayer::create(
                 "AUTO DECOR",
-                "Decoration has already been added to this editor.",
+                "Decoration has already been added!",
                 "OK"
             )->show();
 
@@ -68,11 +71,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             return;
         }
 
-        /*
-         * IMPORTANT:
-         * We remember the original amount of objects.
-         * Anything created below will NOT be processed again.
-         */
         unsigned int originalCount = objects->count();
 
         float minX = 999999.f;
@@ -82,10 +80,7 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
         int blockCount = 0;
 
-        // --------------------------------------------------
-        // 1. Find layout boundaries
-        // --------------------------------------------------
-
+        // Ищем границы существующего layout
         for (unsigned int i = 0; i < originalCount; i++) {
 
             auto object = static_cast<GameObject*>(
@@ -127,9 +122,9 @@ class $modify(AutoDecorEditorUI, EditorUI) {
         int flowers = 0;
         int clouds = 0;
 
-        // --------------------------------------------------
-        // 2. Grass + flowers near the lower part
-        // --------------------------------------------------
+        // ------------------------------------------------
+        // ТРАВА + ЦВЕТЫ
+        // ------------------------------------------------
 
         int blockIndex = 0;
 
@@ -142,24 +137,18 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             if (!block)
                 continue;
 
-            // Only normal blocks
             if (block->m_objectID != 1)
                 continue;
 
             auto pos = block->getPosition();
 
-            // Only decorate objects close to the bottom
+            // Декорируем только нижнюю часть
             if (pos.y > minY + 110.f)
                 continue;
 
-            /*
-             * Vary the decoration pattern.
-             * This prevents every block from looking identical.
-             */
-
+            // Трава
             if (blockIndex % 2 == 0) {
 
-                // Left grass
                 auto grassLeft = editor->createObject(
                     907,
                     {pos.x - 17.f, pos.y + 17.f},
@@ -178,7 +167,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
                     decorated++;
                 }
 
-                // Right grass
                 auto grassRight = editor->createObject(
                     907,
                     {pos.x + 17.f, pos.y + 17.f},
@@ -198,9 +186,7 @@ class $modify(AutoDecorEditorUI, EditorUI) {
                 }
             }
 
-            /*
-             * Flower every few blocks instead of everywhere.
-             */
+            // Цветы
             if (blockIndex % 3 == 0) {
 
                 auto flower = editor->createObject(
@@ -211,13 +197,16 @@ class $modify(AutoDecorEditorUI, EditorUI) {
 
                 if (flower) {
 
-                    if (blockIndex % 6 == 0)
-                        flower->setScale(0.42f);
-                    else
-                        flower->setScale(0.55f);
+                    flower->setScale(
+                        blockIndex % 6 == 0
+                            ? 0.42f
+                            : 0.55f
+                    );
 
                     flower->setRotation(
-                        blockIndex % 2 == 0 ? -5.f : 5.f
+                        blockIndex % 2 == 0
+                            ? -5.f
+                            : 5.f
                     );
 
                     flowers++;
@@ -228,24 +217,20 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             blockIndex++;
         }
 
-        // --------------------------------------------------
-        // 3. Cloud layer
-        // --------------------------------------------------
-
-        /*
-         * Clouds are placed above the layout instead of
-         * attaching one to every block.
-         */
+        // ------------------------------------------------
+        // ОБЛАКА
+        // ------------------------------------------------
 
         float cloudY = maxY + 100.f;
-
         float cloudSpacing = 190.f;
 
         int cloudIndex = 0;
 
-        for (float x = minX - 150.f;
-             x <= maxX + 150.f;
-             x += cloudSpacing) {
+        for (
+            float x = minX - 150.f;
+            x <= maxX + 150.f;
+            x += cloudSpacing
+        ) {
 
             auto cloud = editor->createObject(
                 936,
@@ -256,9 +241,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             if (!cloud)
                 continue;
 
-            /*
-             * Different cloud sizes create a layered look.
-             */
             if (cloudIndex % 4 == 0)
                 cloud->setScale(0.75f);
             else if (cloudIndex % 3 == 0)
@@ -266,9 +248,6 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             else
                 cloud->setScale(0.65f);
 
-            /*
-             * Slight rotation variation.
-             */
             if (cloudIndex % 2 == 0)
                 cloud->setRotation(-3.f);
             else
@@ -279,23 +258,20 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             cloudIndex++;
         }
 
-        // --------------------------------------------------
-        // 4. Mark this editor as decorated
-        // --------------------------------------------------
-
-        m_autoDecorDone = true;
+        // Запоминаем, что декор уже добавлен
+        g_autoDecorDone = true;
 
         log::info(
-            "Auto Decor: {} decorations created, {} flowers, {} clouds.",
-            decorated,
-            flowers,
-            clouds
+            "Auto Decor: {} decorations created!",
+            decorated
         );
 
         FLAlertLayer::create(
             "AUTO DECOR",
             fmt::format(
-                "Created {} decorations!\n\nFlowers: {}\nClouds: {}",
+                "Created {} decorations!\n\n"
+                "Flowers: {}\n"
+                "Clouds: {}",
                 decorated,
                 flowers,
                 clouds
