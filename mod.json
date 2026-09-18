@@ -7,7 +7,7 @@
     "name": "Auto Decor",
     "version": "v1.0.0",
     "developer": "proboom481",
-    "description": "Automatic decoration generator for Geometry Dash levels.",
+    "description": "Automatically decorates Geometry Dash levels.",
     "tags": [
         "editor",
         "utility",
