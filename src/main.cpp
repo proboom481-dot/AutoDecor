@@ -42,59 +42,70 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             return;
         }
 
-        // Запоминаем количество ДО создания новых объектов.
-        // Иначе мы начнём обрабатывать собственный декор повторно.
         unsigned int originalCount = objects->count();
-
         int decorated = 0;
 
         for (unsigned int i = 0; i < originalCount; i++) {
-            auto object = static_cast<GameObject*>(
+            auto block = static_cast<GameObject*>(
                 objects->objectAtIndex(i)
             );
 
-            if (!object)
+            if (!block)
                 continue;
 
-            // Пока декорируем только обычный блок ID 1.
-            if (object->m_objectID != 1)
+            // Пока декорируем обычные блоки.
+            if (block->m_objectID != 1)
                 continue;
 
-            auto pos = object->getPosition();
+            auto pos = block->getPosition();
 
-            // Маленький декоративный блок сверху справа.
-            auto decor = editor->createObject(
-                1,
-                {
-                    pos.x + 14.f,
-                    pos.y + 14.f
-                },
+            // 🌱 Трава слева
+            auto grassLeft = editor->createObject(
+                907,
+                {pos.x - 18.f, pos.y + 18.f},
                 false
             );
 
-            if (!decor)
-                continue;
+            if (grassLeft) {
+                grassLeft->setScale(0.65f);
+                decorated++;
+            }
 
-            decor->setScale(0.35f);
-            decor->setRotation(45.f);
-
-            // Голубоватый декоративный цвет.
-            decor->setObjectColor(
-                {80, 180, 255}
+            // 🌱 Трава справа
+            auto grassRight = editor->createObject(
+                907,
+                {pos.x + 18.f, pos.y + 18.f},
+                false
             );
 
-            decorated++;
+            if (grassRight) {
+                grassRight->setScale(0.65f);
+                grassRight->setRotation(180.f);
+                decorated++;
+            }
+
+            // 🌸 Цветок сверху
+            auto flower = editor->createObject(
+                939,
+                {pos.x, pos.y + 30.f},
+                false
+            );
+
+            if (flower) {
+                flower->setScale(0.55f);
+                decorated++;
+            }
         }
 
         log::info(
-            "Auto Decor: decorated {} blocks!",
+            "Auto Decor: created {} decorations!",
             decorated
         );
 
         FLAlertLayer::create(
             "AUTO DECOR",
             fmt::format(
-                "Decorated {} blocks!",
+                "Created {} decorations!",
                 decorated
             ).c_str(),
             "OK"
