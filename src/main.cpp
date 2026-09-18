@@ -35,28 +35,29 @@ class $modify(AutoDecorEditorUI, EditorUI) {
             return;
         }
 
-        // Создаём настоящий GameObject
-        auto object = GameObject::createWithKey(1);
+        int created = 0;
 
-        if (!object) {
-            FLAlertLayer::create(
-                "Auto Decor",
-                "Failed to create GameObject.",
-                "OK"
-            )->show();
-            return;
+        // Тест: создаём 12 обычных блоков
+        for (int i = 0; i < 12; i++) {
+            float x = 200.f + i * 60.f;
+            float y = 120.f + (i % 3) * 30.f;
+
+            auto object = editor->createObject(
+                1,
+                {x, y},
+                false
+            );
+
+            if (object) {
+                created++;
+            }
         }
 
-        object->setPosition({300.f, 120.f});
-
-        // Добавляем объект через UI-часть редактора.
-        editor->addUIObject(object);
-
-        log::info("Auto Decor: GameObject created!");
+        log::info("Auto Decor: created {} objects", created);
 
         FLAlertLayer::create(
             "Auto Decor",
-            "GameObject created!",
+            fmt::format("Created {} objects!", created).c_str(),
             "OK"
         )->show();
     }
