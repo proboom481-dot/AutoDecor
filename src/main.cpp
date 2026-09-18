@@ -28,30 +28,19 @@ class $modify(AutoDecorEditorUI, EditorUI) {
     }
 
     void onAutoDecor(CCObject* sender) {
-        auto editor = GameManager::sharedState()->getEditorLayer();
+        auto editor = LevelEditorLayer::get();
 
         if (!editor) {
             log::error("Auto Decor: editor not found!");
             return;
         }
 
-        // Создаём 12 базовых блоков
-        for (int i = 0; i < 12; i++) {
-            auto object = GameObject::createWithKey(1);
+        log::info("Auto Decor: editor found!");
 
-            if (!object) {
-                log::error("Auto Decor: failed to create object!");
-                continue;
-            }
-
-            float x = 200.f + i * 60.f;
-            float y = 120.f + (i % 3) * 30.f;
-
-            object->setPosition({x, y});
-
-            editor->addObject(object);
-        }
-
-        log::info("Auto Decor: added 12 objects!");
+        FLAlertLayer::create(
+            "Auto Decor",
+            "Editor found! Object generation is next.",
+            "OK"
+        )->show();
     }
 };
