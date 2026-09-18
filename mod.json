@@ -1,0 +1,16 @@
+{
+    "geode": "v4.0.0",
+    "gd": {
+        "android": "2.2081"
+    },
+    "id": "proboom481.autodecor",
+    "name": "Auto Decor",
+    "version": "v1.0.0",
+    "developer": "proboom481",
+    "description": "Automatic decoration generator for Geometry Dash levels.",
+    "tags": [
+        "editor",
+        "utility",
+        "enhancement"
+    ]
+}
